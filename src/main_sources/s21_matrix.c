@@ -48,7 +48,7 @@ int s21_eq_matrix(matrix_t *A, matrix_t *B) {
                                                                   : FAILURE;
   for (int i = 0; i < A->rows && error; i++) {
     for (int j = 0; j < A->columns && error; j++) {
-      error = (A->matrix[i][j] != B->matrix[i][j]) ? FAILURE : SUCCESS;
+      if (fabs(A->matrix[i][j] - B->matrix[i][j]) > 1e-7) error = FAILURE;
     }
   }
   return error;
@@ -185,15 +185,16 @@ int s21_inverse_matrix(matrix_t *A, matrix_t *result) {
     error = CALCULATION_ERROR;
   }
   if (!error) {
-    error = s21_create_matrix(A->rows, A->columns, result);
+    // error = s21_create_matrix(A->rows, A->columns, result);
     double determinant = 0.0;
     if (!error) {
       error = s21_determinant(A, &determinant);
     }
-    if (!error && !determinant) {
+    if (!error && (!determinant || fabs(determinant) < 1e-6)) {
       error = CALCULATION_ERROR;
     }
     if (!error) {
+      error = s21_create_matrix(A->rows, A->columns, result);
       if (!error && result->rows == 1 && result->columns == 1) {
         if (A->matrix[0][0] != 0) {
           result->matrix[0][0] = 1.0 / A->matrix[0][0];
@@ -206,10 +207,9 @@ int s21_inverse_matrix(matrix_t *A, matrix_t *result) {
         error = s21_calc_complements(A, &complemented);
         if (!error) error = s21_transpose(&complemented, &transposed);
         s21_remove_matrix(&complemented);
-        for (int i = 0; i < A->rows; i++) {
-          for (int j = 0; j < A->columns; j++) {
-            result->matrix[i][j] = transposed.matrix[i][j] / determinant;
-          }
+        if (!error) {
+          s21_remove_matrix(result);
+          error = s21_mult_number(&transposed, 1.0 / determinant, result);
         }
         s21_remove_matrix(&transposed);
       }
